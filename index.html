@@ -3,81 +3,159 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Firebase 연결 테스트 앱</title>
+    <title>VIN 검색 갤러리</title>
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; padding-top: 100px; background-color: #e9ecef; }
-        .container { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        h1 { color: #007bff; }
-        #memo-output { font-size: 1.5em; margin-top: 20px; font-weight: bold; color: #343a40; }
-        .status { margin-top: 10px; color: #6c757d; }
+        /* 기본적인 UI 스타일 */
+        body { 
+            font-family: Arial, sans-serif; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            padding-top: 50px; 
+            background-color: #f8f9fa;
+        }
+        h1 { color: #343a40; }
+        .search-box { 
+            background-color: #ffffff; 
+            padding: 40px; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); 
+            text-align: center;
+            margin-top: 20px;
+        }
+        h2 { margin-top: 0; color: #495057; }
+        input[type="text"] { 
+            padding: 12px; 
+            border: 1px solid #ced4da; 
+            border-radius: 6px; 
+            width: 300px; 
+            margin-right: 10px; 
+            font-size: 16px;
+        }
+        button { 
+            padding: 12px 25px; 
+            background-color: #007bff; 
+            color: white; 
+            border: none; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        button:hover { 
+            background-color: #0056b3; 
+        }
+        #result-area { 
+            margin-top: 40px; 
+            font-size: 1.1em; 
+            text-align: center;
+        }
+        .error { 
+            color: #dc3545; 
+            font-weight: bold;
+        }
+        .success-message { 
+            color: #28a745; 
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
     </style>
 </head>
 <body>
 
-    <div class="container">
-        <h1>Firebase Firestore 연결 테스트</h1>
-        <p class="status" id="status-message">연결을 시도 중입니다...</p>
-        <div id="memo-output">...</div>
+    <h1>My Car Photo at Incheon port, Korea 🚢🚗🇰🇷</h1>
+    <p>Enter the last 8 or full 17 digits of the VIN.</p>
+
+    <div class="search-box">
+        <h2>What is the VIN of your car?</h2>
+        <input type="text" id="vinInput" placeholder="Last 8 or Full 17 VIN digits" maxlength="17">
+        <button onclick="searchVin()">Search</button>
     </div>
 
-    <!-- Firebase SDK 로드 -->
+    <div id="result-area"></div>
+
+    <!-- 1. Firebase SDK 추가 (v9 호환 버전) -->
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
 
     <script>
-        // ⭐ 새 프로젝트 (test-a6250) 설정 정보 반영 ⭐
+        // ⭐ Firebase 프로젝트 설정 정보 (고객님의 photo2-352bf 프로젝트 정보) ⭐
         const firebaseConfig = {
-            apiKey: "AIzaSyDi1uTH1anhIZDqA2kV8EYJ_YxagO0vQ6Y",
-            authDomain: "test-a6250.firebaseapp.com",
-            projectId: "test-a6250", // 새 프로젝트 ID
-            storageBucket: "test-a6250.firebasestorage.app",
-            messagingSenderId: "237086338046",
-            appId: "1:237086338046:web:be2cbb2a536742806f6eaf",
-            measurementId: "G-5CRQHGH89B"
+            apiKey: "AIzaSyDvlHZf1CYmpwuLBfHUC9A1KAj608ekX6Q",
+            authDomain: "photo2-352bf.firebaseapp.com",
+            projectId: "photo2-352bf", 
+            storageBucket: "photo2-352bf.firebasestorage.app",
+            messagingSenderId: "603476388610",
+            appId: "1:603476388610:web:67117489236ff3900c701b",
+            measurementId: "G-Z69XFJQJ7D"
         };
 
+        // Firebase 초기화 로직
         let db;
-        const statusEl = document.getElementById('status-message');
-        const outputEl = document.getElementById('memo-output');
-
         try {
+            // 이미 초기화된 앱이 있는지 확인 후, 없으면 초기화
             if (!firebase.apps.length) {
                  firebase.initializeApp(firebaseConfig);
             }
             db = firebase.firestore();
-            statusEl.textContent = "✅ Firebase 초기화 성공. 데이터 로딩 중...";
-            fetchMemo();
+            
+            console.log("Firebase initialized successfully.");
 
         } catch (e) {
             console.error("Firebase Initialization Error:", e);
-            statusEl.textContent = "❌ Firebase 초기화 실패. 콘솔을 확인하세요.";
+            document.getElementById('result-area').innerHTML = 
+                '<p class="error">❌ Firebase 초기화 실패! (API 키 또는 프로젝트 ID 오류)</p>';
+            
         }
+        
+        // 🌟🌟🌟 컬렉션 이름을 데이터베이스와 일치하는 'cars'로 설정 🌟🌟🌟
+        const carsRef = db ? db.collection("cars") : null; 
 
-        async function fetchMemo() {
-            if (!db) return;
+        /**
+         * VIN을 검색하고 Firestore에서 앨범 URL을 조회하는 함수
+         */
+        async function searchVin() {
+            const vin = document.getElementById('vinInput').value.trim();
+            const resultArea = document.getElementById('result-area');
+            
+            if (!db) {
+                resultArea.innerHTML = '<p class="error">Firebase 서비스가 초기화되지 않았습니다. 콘솔 오류를 확인하세요.</p>';
+                return;
+            }
+
+            resultArea.innerHTML = '<p style="color: #007bff;">🔍 Searching...</p>';
+
+            if (!vin) {
+                resultArea.innerHTML = '<p class="error">VIN 번호를 입력해 주세요.</p>';
+                return;
+            }
 
             try {
-                // 'test_memo' 컬렉션의 'message' 문서 조회 (새로운 컬렉션)
-                const doc = await db.collection("test_memo").doc("message").get();
+                // Firestore에서 VIN(Document ID)으로 직접 조회
+                const doc = await carsRef.doc(vin).get();
 
                 if (doc.exists) {
-                    const content = doc.data().content;
-                    if (content) {
-                        outputEl.textContent = content;
-                        statusEl.textContent = "✨ 데이터 조회 성공!";
+                    // 필드 이름 'albumUrl'로 조회
+                    const url = doc.data().albumUrl; 
+                    
+                    if (url) {
+                         resultArea.innerHTML = `
+                            <p class="success-message">✅ VIN **${vin}** 에 대한 앨범을 찾았습니다!</p>
+                            <p>
+                                <a href="${url}" target="_blank" style="color: #007bff; font-weight: bold; text-decoration: none;">➡️ Google 포토 앨범 바로가기</a>
+                            </p>
+                        `;
                     } else {
-                        outputEl.textContent = "데이터 필드(content)가 비어있습니다.";
-                        statusEl.textContent = "❌ 데이터 오류.";
+                         resultArea.innerHTML = `<p class="error">❌ 오류: 앨범 URL 데이터가 비어 있습니다. Firestore 필드(albumUrl)를 확인해주세요.</p>`;
                     }
+                   
                 } else {
-                    outputEl.textContent = "문서 ID 'message'를 찾을 수 없습니다.";
-                    statusEl.textContent = "❌ 데이터베이스 오류.";
+                    resultArea.innerHTML = `<p class="error">❌ 오류: VIN **${vin}** 에 해당하는 차량 정보를 찾을 수 없습니다.</p>`;
                 }
-
             } catch (error) {
-                console.error("Firestore Read Error:", error);
-                outputEl.textContent = "데이터베이스 조회 실패 (Permission Denied).";
-                statusEl.textContent = "🚨 보안 규칙 또는 API 오류.";
+                // 이 오류는 최종적으로 보안 규칙 거부(Permission Denied)일 가능성이 가장 높습니다.
+                console.error("Firestore Read Error (Check Rules/Data):", error); 
+                resultArea.innerHTML = `<p class="error">데이터베이스 조회 중 오류가 발생했습니다. (Console을 확인하세요)</p>`;
             }
         }
     </script>
