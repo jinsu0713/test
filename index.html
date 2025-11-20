@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VIN 검색 갤러리</title>
+    <title>VIN 검색 갤러리 및 운송 조회</title>
     <style>
         /* 기본적인 UI 스타일 */
         body { 
@@ -49,6 +49,8 @@
             margin-top: 40px; 
             font-size: 1.1em; 
             text-align: center;
+            width: 90%;
+            max-width: 800px;
         }
         .error { 
             color: #dc3545; 
@@ -58,6 +60,36 @@
             color: #28a745; 
             font-weight: bold;
             margin-bottom: 10px;
+        }
+        
+        /* 테이블 스타일 추가 */
+        .tracking-table {
+            width: 100%;
+            margin-top: 30px;
+            border-collapse: collapse;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            overflow: hidden;
+            text-align: left;
+        }
+        .tracking-table th, .tracking-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .tracking-table th {
+            background-color: #f1f1f1;
+            width: 30%;
+            font-weight: bold;
+            color: #495057;
+        }
+        .tracking-table td {
+            background-color: #ffffff;
+            color: #343a40;
+        }
+        .tracking-header {
+            color: #007bff;
+            margin-top: 40px;
+            margin-bottom: 20px;
         }
     </style>
 </head>
@@ -75,15 +107,16 @@
     <div id="result-area"></div>
 
     <!-- Firebase SDK 로드 -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
+    <script type="module">
+        // 모듈 방식 import
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-app.js";
+        import { getFirestore, doc, getDoc, collection } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-firestore.js";
 
-    <script>
-        // ⭐ 새 프로젝트 (test-a6250) 설정 정보 반영 ⭐
+        // ⭐ 새 프로젝트 (test-a6250) 설정 정보를 반영합니다. ⭐
         const firebaseConfig = {
             apiKey: "AIzaSyDi1uTH1anhIZDqA2kV8EYJ_YxagO0vQ6Y",
             authDomain: "test-a6250.firebaseapp.com",
-            projectId: "test-a6250", // 새 프로젝트 ID
+            projectId: "test-a6250", 
             storageBucket: "test-a6250.firebasestorage.app",
             messagingSenderId: "237086338046",
             appId: "1:237086338046:web:be2cbb2a536742806f6eaf",
@@ -93,28 +126,24 @@
         // Firebase 초기화 로직
         let db;
         try {
-            // 이미 초기화된 앱이 있는지 확인 후, 없으면 초기화
-            if (!firebase.apps.length) {
-                 firebase.initializeApp(firebaseConfig);
-            }
-            db = firebase.firestore();
-            
-            console.log("Firebase initialized successfully.");
+            const app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            console.log("Firebase initialized successfully with new project (Module).");
 
         } catch (e) {
             console.error("Firebase Initialization Error:", e);
             document.getElementById('result-area').innerHTML = 
-                '<p class="error">❌ Firebase 초기화 실패! (API 키 또는 프로젝트 ID 오류)</p>';
+                '<p class="error">❌ Firebase 초기화 실패! (API 키, 프로젝트 ID 또는 SDK 문제)</p>';
             
         }
         
-        // 🌟🌟🌟 컬렉션 이름을 데이터베이스와 일치하는 'cars'로 설정 🌟🌟🌟
-        const carsRef = db ? db.collection("cars") : null; 
+        // VIN 데이터가 저장될 컬렉션 이름 ('cars')을 참조합니다. 
+        const carsRef = db ? collection(db, "cars") : null; 
 
         /**
          * VIN을 검색하고 Firestore에서 앨범 URL을 조회하는 함수
          */
-        async function searchVin() {
+        window.searchVin = async function() {
             const vin = document.getElementById('vinInput').value.trim();
             const resultArea = document.getElementById('result-area');
             
@@ -131,29 +160,63 @@
             }
 
             try {
-                // Firestore에서 VIN(Document ID)으로 직접 조회
-                const doc = await carsRef.doc(vin).get();
+                const docRef = doc(db, "cars", vin); 
+                const docSnap = await getDoc(docRef);
 
-                if (doc.exists) {
-                    // 필드 이름 'albumUrl'로 조회
-                    const url = doc.data().albumUrl; 
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    const url = data.albumUrl; 
                     
-                    if (url) {
-                         resultArea.innerHTML = `
-                            <p class="success-message">✅ VIN **${vin}** 에 대한 앨범을 찾았습니다!</p>
-                            <p>
-                                <a href="${url}" target="_blank" style="color: #007bff; font-weight: bold; text-decoration: none;">➡️ Google 포토 앨범 바로가기</a>
-                            </p>
-                        `;
-                    } else {
-                         resultArea.innerHTML = `<p class="error">❌ 오류: 앨범 URL 데이터가 비어 있습니다. Firestore 필드(albumUrl)를 확인해주세요.</p>`;
-                    }
+                    // Firestore에서 조회할 추가 필드 (고객님의 요청에 따라 임의로 지정)
+                    const model = data.model || 'N/A';
+                    const vessel = data.vessel || 'N/A';
+                    const eta = data.eta || 'N/A';
+                    const pol = data.pol || 'N/A';
+                    const port = data.port || 'N/A';
+                    const shipper = data.shipper || 'N/A';
+                    const trackingLink = data.trackingLink || 'https://cigshipping.com/Home/cargo.html';
+
+                    // HTML 결과 생성
+                    let resultHtml = `
+                        <p class="success-message">✅ VIN **${vin}** 에 대한 정보를 찾았습니다!</p>
+                        
+                        <!-- Google 포토 앨범 링크 -->
+                        ${url ? 
+                            `<p style="margin-bottom: 20px;">
+                                <a href="${url}" target="_blank" style="color: #17a2b8; font-weight: bold; text-decoration: none;">➡️ Google 포토 앨범 바로가기</a>
+                            </p>` 
+                            : ''}
+
+                        <!-- CARGO TRACKING 헤더 -->
+                        <h2 class="tracking-header">CARGO TRACKING</h2>
+                        
+                        <!-- 운송 상세 정보 테이블 -->
+                        <table class="tracking-table">
+                            <thead>
+                                <tr><th colspan="2" style="background-color: #007bff; color: white;">CARGO STATUS</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><th>SHIPPER</th><td>${shipper}</td><th>MODEL(YEAR)</th><td>${model}</td></tr>
+                                <tr><th>CHASSIS</th><td>${vin}</td><th>VESSEL</th><td>${vessel}</td></tr>
+                                <tr><th>POL</th><td>${pol}</td><th>On Board</th><td>${data.onBoard || 'N/A'}</td></tr>
+                                <tr><th>PORT</th><td>${port}</td><th>ETA</th><td>${eta}</td></tr>
+                            </tbody>
+                        </table>
+
+                        <!-- 외부 사이트 트래킹 링크 (직접 조회가 불가능하므로 링크 제공) -->
+                        <p style="margin-top: 20px;">
+                            <a href="${trackingLink}" target="_blank" style="color: #28a745; font-weight: bold; text-decoration: none;">
+                                🚢 운송사 사이트에서 상세 트래킹 정보 확인하기
+                            </a>
+                        </p>
+                    `;
+                    
+                    resultArea.innerHTML = resultHtml;
                    
                 } else {
                     resultArea.innerHTML = `<p class="error">❌ 오류: VIN **${vin}** 에 해당하는 차량 정보를 찾을 수 없습니다.</p>`;
                 }
             } catch (error) {
-                // 이 오류는 최종적으로 보안 규칙 거부(Permission Denied)일 가능성이 가장 높습니다.
                 console.error("Firestore Read Error (Check Rules/Data):", error); 
                 resultArea.innerHTML = `<p class="error">데이터베이스 조회 중 오류가 발생했습니다. (Console을 확인하세요)</p>`;
             }
