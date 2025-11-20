@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firebase 연결 테스트 앱</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding-top: 100px; background-color: #e9ecef; }
+        .container { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        h1 { color: #007bff; }
+        #memo-output { font-size: 1.5em; margin-top: 20px; font-weight: bold; color: #343a40; }
+        .status { margin-top: 10px; color: #6c757d; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Firebase Firestore 연결 테스트</h1>
+        <p class="status" id="status-message">연결을 시도 중입니다...</p>
+        <div id="memo-output">...</div>
+    </div>
+
+    <!-- Firebase SDK 로드 -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
+
+    <script>
+        // ⭐ 새 프로젝트 (test-a6250) 설정 정보 반영 ⭐
+        const firebaseConfig = {
+            apiKey: "AIzaSyDi1uTH1anhIZDqA2kV8EYJ_YxagO0vQ6Y",
+            authDomain: "test-a6250.firebaseapp.com",
+            projectId: "test-a6250", // 새 프로젝트 ID
+            storageBucket: "test-a6250.firebasestorage.app",
+            messagingSenderId: "237086338046",
+            appId: "1:237086338046:web:be2cbb2a536742806f6eaf",
+            measurementId: "G-5CRQHGH89B"
+        };
+
+        let db;
+        const statusEl = document.getElementById('status-message');
+        const outputEl = document.getElementById('memo-output');
+
+        try {
+            if (!firebase.apps.length) {
+                 firebase.initializeApp(firebaseConfig);
+            }
+            db = firebase.firestore();
+            statusEl.textContent = "✅ Firebase 초기화 성공. 데이터 로딩 중...";
+            fetchMemo();
+
+        } catch (e) {
+            console.error("Firebase Initialization Error:", e);
+            statusEl.textContent = "❌ Firebase 초기화 실패. 콘솔을 확인하세요.";
+        }
+
+        async function fetchMemo() {
+            if (!db) return;
+
+            try {
+                // 'test_memo' 컬렉션의 'message' 문서 조회 (새로운 컬렉션)
+                const doc = await db.collection("test_memo").doc("message").get();
+
+                if (doc.exists) {
+                    const content = doc.data().content;
+                    if (content) {
+                        outputEl.textContent = content;
+                        statusEl.textContent = "✨ 데이터 조회 성공!";
+                    } else {
+                        outputEl.textContent = "데이터 필드(content)가 비어있습니다.";
+                        statusEl.textContent = "❌ 데이터 오류.";
+                    }
+                } else {
+                    outputEl.textContent = "문서 ID 'message'를 찾을 수 없습니다.";
+                    statusEl.textContent = "❌ 데이터베이스 오류.";
+                }
+
+            } catch (error) {
+                console.error("Firestore Read Error:", error);
+                outputEl.textContent = "데이터베이스 조회 실패 (Permission Denied).";
+                statusEl.textContent = "🚨 보안 규칙 또는 API 오류.";
+            }
+        }
+    </script>
+</body>
+</html>
