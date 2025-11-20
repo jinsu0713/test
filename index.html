@@ -50,7 +50,7 @@
             font-size: 1.1em; 
             text-align: center;
             width: 90%;
-            max-width: 800px;
+            max-width: 1000px; /* 최대 너비 확장 */
         }
         .error { 
             color: #dc3545; 
@@ -62,7 +62,7 @@
             margin-bottom: 10px;
         }
         
-        /* 테이블 스타일 추가 */
+        /* 테이블 스타일 */
         .tracking-table {
             width: 100%;
             margin-top: 30px;
@@ -75,10 +75,11 @@
         .tracking-table th, .tracking-table td {
             padding: 12px 15px;
             border-bottom: 1px solid #dee2e6;
+            white-space: normal;
         }
         .tracking-table th {
             background-color: #f1f1f1;
-            width: 30%;
+            width: 20%; /* 헤더 너비를 줄여 데이터 공간 확보 */
             font-weight: bold;
             color: #495057;
         }
@@ -90,6 +91,16 @@
             color: #007bff;
             margin-top: 40px;
             margin-bottom: 20px;
+        }
+        /* 모바일 환경 최적화 */
+        @media (max-width: 768px) {
+            .tracking-table th {
+                width: 30%; 
+                padding: 8px 10px;
+            }
+            .tracking-table td {
+                padding: 8px 10px;
+            }
         }
     </style>
 </head>
@@ -108,7 +119,7 @@
 
     <!-- Firebase SDK 로드 -->
     <script type="module">
-        // 모듈 방식 import
+        // 모듈 방식 import (최신 버전 사용)
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-app.js";
         import { getFirestore, doc, getDoc, collection } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-firestore.js";
 
@@ -137,7 +148,7 @@
             
         }
         
-        // VIN 데이터가 저장될 컬렉션 이름 ('cars')을 참조합니다. 
+        // 🌟 VIN 데이터가 저장될 컬렉션 이름 ('cars')을 참조합니다. 
         const carsRef = db ? collection(db, "cars") : null; 
 
         /**
@@ -167,13 +178,14 @@
                     const data = docSnap.data();
                     const url = data.albumUrl; 
                     
-                    // Firestore에서 조회할 추가 필드 (고객님의 요청에 따라 임의로 지정)
+                    // Firestore에서 조회할 추가 필드 (Python 크롤러가 입력한다고 가정)
                     const model = data.model || 'N/A';
                     const vessel = data.vessel || 'N/A';
                     const eta = data.eta || 'N/A';
                     const pol = data.pol || 'N/A';
                     const port = data.port || 'N/A';
                     const shipper = data.shipper || 'N/A';
+                    const onBoard = data.onBoard || 'N/A';
                     const trackingLink = data.trackingLink || 'https://cigshipping.com/Home/cargo.html';
 
                     // HTML 결과 생성
@@ -198,12 +210,12 @@
                             <tbody>
                                 <tr><th>SHIPPER</th><td>${shipper}</td><th>MODEL(YEAR)</th><td>${model}</td></tr>
                                 <tr><th>CHASSIS</th><td>${vin}</td><th>VESSEL</th><td>${vessel}</td></tr>
-                                <tr><th>POL</th><td>${pol}</td><th>On Board</th><td>${data.onBoard || 'N/A'}</td></tr>
+                                <tr><th>POL</th><td>${pol}</td><th>On Board</th><td>${onBoard}</td></tr>
                                 <tr><th>PORT</th><td>${port}</td><th>ETA</th><td>${eta}</td></tr>
                             </tbody>
                         </table>
 
-                        <!-- 외부 사이트 트래킹 링크 (직접 조회가 불가능하므로 링크 제공) -->
+                        <!-- 외부 사이트 트래킹 링크 -->
                         <p style="margin-top: 20px;">
                             <a href="${trackingLink}" target="_blank" style="color: #28a745; font-weight: bold; text-decoration: none;">
                                 🚢 운송사 사이트에서 상세 트래킹 정보 확인하기
