@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VIN 검색 갤러리 및 운송 조회</title>
+    <title>VIN 검색 갤러리 및 운송 조회 (Netlify Function)</title>
     <style>
         /* 기본적인 UI 스타일 */
         body { 
@@ -50,7 +50,7 @@
             font-size: 1.1em; 
             text-align: center;
             width: 90%;
-            max-width: 1000px; /* 최대 너비 확장 */
+            max-width: 1000px; 
         }
         .error { 
             color: #dc3545; 
@@ -79,7 +79,7 @@
         }
         .tracking-table th {
             background-color: #f1f1f1;
-            width: 20%; /* 헤더 너비를 줄여 데이터 공간 확보 */
+            width: 20%; 
             font-weight: bold;
             color: #495057;
         }
@@ -117,92 +117,59 @@
 
     <div id="result-area"></div>
 
-    <!-- Firebase SDK 로드 -->
     <script type="module">
-        // 모듈 방식 import (최신 버전 사용)
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-app.js";
-        import { getFirestore, doc, getDoc, collection } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-firestore.js";
-
-        // ⭐ 새 프로젝트 (test-a6250) 설정 정보를 반영합니다. ⭐
-        const firebaseConfig = {
-            apiKey: "AIzaSyDi1uTH1anhIZDqA2kV8EYJ_YxagO0vQ6Y",
-            authDomain: "test-a6250.firebaseapp.com",
-            projectId: "test-a6250", 
-            storageBucket: "test-a6250.firebasestorage.app",
-            messagingSenderId: "237086338046",
-            appId: "1:237086338046:web:be2cbb2a536742806f6eaf",
-            measurementId: "G-5CRQHGH89B"
-        };
-
-        // Firebase 초기화 로직
-        let db;
-        try {
-            const app = initializeApp(firebaseConfig);
-            db = getFirestore(app);
-            console.log("Firebase initialized successfully with new project (Module).");
-
-        } catch (e) {
-            console.error("Firebase Initialization Error:", e);
-            document.getElementById('result-area').innerHTML = 
-                '<p class="error">❌ Firebase 초기화 실패! (API 키, 프로젝트 ID 또는 SDK 문제)</p>';
-            
-        }
-        
-        // 🌟 VIN 데이터가 저장될 컬렉션 이름 ('cars')을 참조합니다. 
-        const carsRef = db ? collection(db, "cars") : null; 
 
         /**
-         * VIN을 검색하고 Firestore에서 앨범 URL을 조회하는 함수
+         * VIN을 검색하고 Netlify Function을 호출하여 앨범 URL 및 운송 정보를 조회하는 함수
          */
         window.searchVin = async function() {
             const vin = document.getElementById('vinInput').value.trim();
             const resultArea = document.getElementById('result-area');
             
-            if (!db) {
-                resultArea.innerHTML = '<p class="error">Firebase 서비스가 초기화되지 않았습니다. 콘솔 오류를 확인하세요.</p>';
-                return;
-            }
+            // Netlify Function의 엔드포인트 URL
+            const FUNCTION_ENDPOINT = '/.netlify/functions/vin_search';
 
-            resultArea.innerHTML = '<p style="color: #007bff;">🔍 Searching...</p>';
+            resultArea.innerHTML = '<p style="color: #007bff;">🔍 Searching using Netlify Function...</p>';
 
             if (!vin) {
                 resultArea.innerHTML = '<p class="error">VIN 번호를 입력해 주세요.</p>';
                 return;
             }
+            
+            // VIN을 쿼리 파라미터로 포함하여 Netlify Function에 요청을 보냅니다.
+            const url = `${FUNCTION_ENDPOINT}?vin=${encodeURIComponent(vin)}`;
 
             try {
-                const docRef = doc(db, "cars", vin); 
-                const docSnap = await getDoc(docRef);
+                const response = await fetch(url);
+                const data = await response.json(); // Python Function이 반환한 JSON 데이터
 
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    const url = data.albumUrl; 
+                if (response.ok && data.found) {
                     
-                    // Firestore에서 조회할 추가 필드 (Python 크롤러가 입력한다고 가정)
+                    // Python Function이 반환한 데이터를 사용합니다.
+                    const url = data.albumUrl || ''; 
                     const model = data.model || 'N/A';
                     const vessel = data.vessel || 'N/A';
                     const eta = data.eta || 'N/A';
-                    const pol = data.pol || 'N/A';
                     const port = data.port || 'N/A';
+                    
+                    // 현재 Python Function에 없는 데이터는 임시 값으로 대체합니다.
                     const shipper = data.shipper || 'N/A';
                     const onBoard = data.onBoard || 'N/A';
                     const trackingLink = data.trackingLink || 'https://cigshipping.com/Home/cargo.html';
 
+
                     // HTML 결과 생성
                     let resultHtml = `
-                        <p class="success-message">✅ VIN **${vin}** 에 대한 정보를 찾았습니다!</p>
+                        <p class="success-message">✅ VIN **${vin}** 에 대한 정보를 찾았습니다! (Netlify Function)</p>
                         
-                        <!-- Google 포토 앨범 링크 -->
                         ${url ? 
                             `<p style="margin-bottom: 20px;">
                                 <a href="${url}" target="_blank" style="color: #17a2b8; font-weight: bold; text-decoration: none;">➡️ Google 포토 앨범 바로가기</a>
                             </p>` 
                             : ''}
 
-                        <!-- CARGO TRACKING 헤더 -->
                         <h2 class="tracking-header">CARGO TRACKING</h2>
                         
-                        <!-- 운송 상세 정보 테이블 -->
                         <table class="tracking-table">
                             <thead>
                                 <tr><th colspan="2" style="background-color: #007bff; color: white;">CARGO STATUS</th></tr>
@@ -210,12 +177,11 @@
                             <tbody>
                                 <tr><th>SHIPPER</th><td>${shipper}</td><th>MODEL(YEAR)</th><td>${model}</td></tr>
                                 <tr><th>CHASSIS</th><td>${vin}</td><th>VESSEL</th><td>${vessel}</td></tr>
-                                <tr><th>POL</th><td>${pol}</td><th>On Board</th><td>${onBoard}</td></tr>
+                                <tr><th>POL</th><td>Python Data</td><th>On Board</th><td>${onBoard}</td></tr>
                                 <tr><th>PORT</th><td>${port}</td><th>ETA</th><td>${eta}</td></tr>
                             </tbody>
                         </table>
 
-                        <!-- 외부 사이트 트래킹 링크 -->
                         <p style="margin-top: 20px;">
                             <a href="${trackingLink}" target="_blank" style="color: #28a745; font-weight: bold; text-decoration: none;">
                                 🚢 운송사 사이트에서 상세 트래킹 정보 확인하기
@@ -226,11 +192,13 @@
                     resultArea.innerHTML = resultHtml;
                    
                 } else {
-                    resultArea.innerHTML = `<p class="error">❌ 오류: VIN **${vin}** 에 해당하는 차량 정보를 찾을 수 없습니다.</p>`;
+                    // Function에서 404를 반환하거나 data.found가 false일 경우
+                    const errorMessage = data.message || `오류: ${response.status} (${response.statusText})`;
+                    resultArea.innerHTML = `<p class="error">❌ 오류: VIN **${vin}** 에 해당하는 차량 정보를 찾을 수 없습니다. (${errorMessage})</p>`;
                 }
             } catch (error) {
-                console.error("Firestore Read Error (Check Rules/Data):", error); 
-                resultArea.innerHTML = `<p class="error">데이터베이스 조회 중 오류가 발생했습니다. (Console을 확인하세요)</p>`;
+                console.error("Netlify Function 호출 중 오류 발생:", error); 
+                resultArea.innerHTML = `<p class="error">통신 중 오류가 발생했습니다. (Console을 확인하세요)</p>`;
             }
         }
     </script>
