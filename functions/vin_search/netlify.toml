@@ -1,6 +1,0 @@
-[functions]
-  # Netlify Function 코드가 들어있는 폴더를 지정합니다.
-  directory = "functions"
-  
-  # Netlify에서 Python을 사용하기 위한 기본적인 설정
-  node_bundler = "esbuild"
